@@ -50,7 +50,8 @@ public class DrivetrainConstants {
     public static final DCMotor kSteerSimulatedGearbox = DCMotor.getNeo550(1);
 
     // Steer Motor Encoder Configuration
-    public static final boolean kSteerEncoderInverted = true;
+    public static final boolean kSteerEncoderInverted = false;
+    public static final boolean kSwerveEncoderInverted = false;
     public static final double kSteerEncoderPositionFactor = (2 * Math.PI) / kSteerMotorReduction; // Rotations -> Radians
     public static final double kSteerEncoderVelocityFactor = (2 * Math.PI) / 60.0 / kSteerMotorReduction; // RPM -> Rad/Sec
 
