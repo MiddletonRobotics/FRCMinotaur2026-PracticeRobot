@@ -2,6 +2,8 @@ package frc.robot.subsystems.drivetrain;
 
 import org.littletonrobotics.junction.AutoLog;
 
+import com.ctre.phoenix6.signals.MagnetHealthValue;
+
 import edu.wpi.first.math.geometry.Rotation2d;
 
 public interface ModuleIO {
@@ -22,11 +24,14 @@ public interface ModuleIO {
         public double steerTempuratureCelsius = 0.0; // Will depricate when using MinoSparkMax
 
         public boolean isSwerveEncoderConnected = false;
-        public double swerveEncoderPosition = 0.0; // figure out units for this as we code
+        public double swerveEncoderPositionRadians = 0.0; // figure out units for this as we code
+        public double swerveEncoderVelocityRadiansPerSecond = 0.0;
+        public MagnetHealthValue swerveEncoderMagnetHealth = MagnetHealthValue.Magnet_Invalid;
+        public double swerveEncoderSupplyVoltage = 0.0;
         
         public double[] odometryTimestamps = new double[] {};
         public double[] odometryDrivePositionsRadians = new double[] {};
-        public double[] odometrySteerPositionsRadians = new double[] {};
+        public Rotation2d[] odometrySteerPositionsRadians = new Rotation2d[] {};
     }
 
     public default void updateInputs(ModuleIOInputs inputs) {};
