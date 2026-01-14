@@ -1,5 +1,8 @@
 package frc.robot.constants;
 
+import com.pathplanner.lib.config.ModuleConfig;
+import com.pathplanner.lib.config.RobotConfig;
+
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.system.plant.DCMotor;
@@ -14,6 +17,9 @@ public class DrivetrainConstants {
     public static final SwerveModuleConstants kFrontRightModuleConstants = new SwerveModuleConstants(3, 4, 10, Rotation2d.fromRotations(0.0)); // replace with actual values
     public static final SwerveModuleConstants kBackLeftModuleConstants = new SwerveModuleConstants(5, 6, 11, Rotation2d.fromRotations(0.0)); // replace with actual values
     public static final SwerveModuleConstants kBackRightModuleConstants = new SwerveModuleConstants(7, 8, 12, Rotation2d.fromRotations(0.0)); // replace with actual values
+
+    public static final double kDriveMaximumSpeedMetersPerSecond = 4.5;
+    public static final double kDriveMaximumAccelerationMetersPerSecondSquared = 9.0;
 
     // Drive Motor PID Constants
     public static final double driveKp = 0.0;
@@ -59,12 +65,29 @@ public class DrivetrainConstants {
     public static final double kTrackWidth = Units.inchesToMeters(21.5);
     public static final double kWheelBase = Units.inchesToMeters(21.5);
     public static final double kDriveBaseRadius = Math.hypot(kTrackWidth / 2.0, kWheelBase / 2.0);
-    public static final Translation2d[] moduleTranslations = new Translation2d[] {
+    public static final Translation2d[] kModuleTranslations = new Translation2d[] {
         new Translation2d(kTrackWidth / 2.0, kWheelBase / 2.0),
         new Translation2d(kTrackWidth / 2.0, -kWheelBase / 2.0),
         new Translation2d(-kTrackWidth / 2.0, kWheelBase / 2.0),
         new Translation2d(-kTrackWidth / 2.0, -kWheelBase / 2.0)
     };
+
+    public static final double kRobotMassKilograms = 25.00;
+    public static final double kRobotMOI = 6.883;
+    public static final double kWheelCOF = 1.0;
+    public static final RobotConfig kPathPlannerConfiguration = new RobotConfig(
+        kRobotMassKilograms,
+        kRobotMOI,
+        new ModuleConfig(
+            kWheelRadiusMeters, 
+            kDriveMaximumSpeedMetersPerSecond, 
+            kWheelCOF, 
+            kDriveSimulatedGearbox, 
+            kDriveMotorCurrentLimit, 
+            1
+        ),
+        kModuleTranslations
+    );
 
     public record SwerveModuleConstants (
         int driveMotorID, 
