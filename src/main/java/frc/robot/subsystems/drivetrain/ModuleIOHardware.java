@@ -1,7 +1,5 @@
 package frc.robot.subsystems.drivetrain;
 
-import static edu.wpi.first.units.Units.KilogramMetersPerSecond;
-import static edu.wpi.first.units.Units.Radians;
 import static edu.wpi.first.units.Units.RadiansPerSecond;
 import static edu.wpi.first.units.Units.Rotations;
 import static edu.wpi.first.units.Units.Volts;
@@ -40,6 +38,7 @@ import edu.wpi.first.math.util.Units;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.units.measure.Voltage;
+
 import frc.robot.constants.DrivetrainConstants;
 import frc.robot.constants.DrivetrainConstants.SwerveModuleConstants;
 import frc.robot.utilities.PhoenixUtility;
@@ -80,6 +79,8 @@ public class ModuleIOHardware implements ModuleIO {
         steerMotor = new SparkMax(swerveModuleConstants.steerMotorID(), MotorType.kBrushless);
         swerveEncoder = new CANcoder(swerveModuleConstants.swerveEncoderID());
 
+        swerveEncoderOffset = swerveModuleConstants.swerveEncoderOffset();
+
         driveEncoder = driveMotor.getEncoder();
         steerEncoder = steerMotor.getEncoder();
 
@@ -116,7 +117,8 @@ public class ModuleIOHardware implements ModuleIO {
 
         swerveEncoderConfiguration = new CANcoderConfiguration()
             .withMagnetSensor(new MagnetSensorConfigs()
-                .withMagnetOffset(swerveModuleConstants.swerveEncoderOffset().getRotations())
+                .withAbsoluteSensorDiscontinuityPoint(0.5)
+                .withMagnetOffset(swerveEncoderOffset.getRotations())
                 .withSensorDirection(DrivetrainConstants.kSwerveEncoderInverted ? SensorDirectionValue.Clockwise_Positive : SensorDirectionValue.CounterClockwise_Positive)
             );
 
@@ -150,7 +152,7 @@ public class ModuleIOHardware implements ModuleIO {
             .outputCurrentPeriodMs(20);
 
         REVUtility.tryUntilOk(steerMotor, 5, () -> steerMotor.configure(steerConfiguration, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters));
-        REVUtility.tryUntilOk(steerMotor, 5, () -> steerEncoder.setPosition(0.0)); // IMPORTANT TODO: Need to set the position to the current position of the absolute encoder;
+        REVUtility.tryUntilOk(steerMotor, 5, () -> steerEncoder.setPosition(swerveEncoderOffset.getRadians()));
 
         swerveEncoderPosition = swerveEncoder.getAbsolutePosition();
         swerveEncoderVelocity = swerveEncoder.getVelocity();
@@ -182,7 +184,7 @@ public class ModuleIOHardware implements ModuleIO {
         inputs.isDriveMotorConnected = driveConnectedDebouncer.calculate(!REVUtility.sparkStickyFault);
 
         REVUtility.sparkStickyFault = false;
-        REVUtility.ifOk(steerMotor, steerEncoder::getPosition, (v) -> inputs.steerPositionRadians = new Rotation2d(v).minus(swerveEncoderOffset));
+        REVUtility.ifOk(steerMotor, steerEncoder::getPosition, (v) -> inputs.steerPositionRadians = new Rotation2d(v));
         REVUtility.ifOk(steerMotor, steerEncoder::getVelocity, (v) -> inputs.steerVelocityRadiansPerSecond = v);
         REVUtility.ifOk(steerMotor, new DoubleSupplier[] {steerMotor::getAppliedOutput, steerMotor::getBusVoltage}, (v) -> inputs.steerAppliedVoltage = v[0] * v[1]);
         REVUtility.ifOk(steerMotor, steerMotor::getOutputCurrent, (v) -> inputs.steerCurrentAmperes = v);
@@ -196,8 +198,8 @@ public class ModuleIOHardware implements ModuleIO {
         inputs.swerveEncoderSupplyVoltage = swerveEncoderSupplyVoltage.getValue().in(Volts);
 
         inputs.odometryTimestamps = timestampQueue.stream().mapToDouble((Double v) -> v).toArray();
-        inputs.odometryDrivePositionsRadians = drivePositionQueue.stream().mapToDouble((Double v) -> Units.rotationsToRadians(v)).toArray();
-        inputs.odometrySteerPositionsRadians = steerPositionQueue.stream().map((Double v) -> Rotation2d.fromRotations(v)).toArray(Rotation2d[]::new);
+        inputs.odometryDrivePositionsRadians = drivePositionQueue.stream().mapToDouble((Double v) -> v).toArray();
+        inputs.odometrySteerPositionsRadians = steerPositionQueue.stream().map((Double v) -> Rotation2d.fromRadians(v)).toArray(Rotation2d[]::new);
 
         timestampQueue.clear();
         drivePositionQueue.clear();
