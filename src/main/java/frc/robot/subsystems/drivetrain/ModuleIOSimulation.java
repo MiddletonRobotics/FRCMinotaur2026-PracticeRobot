@@ -3,6 +3,7 @@ package frc.robot.subsystems.drivetrain;
 import static edu.wpi.first.units.Units.Amps;
 import static edu.wpi.first.units.Units.Radians;
 import static edu.wpi.first.units.Units.RadiansPerSecond;
+import static edu.wpi.first.units.Units.Volts;
 
 import java.util.Arrays;
 
@@ -39,6 +40,21 @@ public class ModuleIOSimulation implements ModuleIO {
 
     @Override
     public void updateInputs(ModuleIOInputs inputs) {
+        if(driveClosedLoop) {
+            driveAppliedVoltage = driveFFVoltage + driveController.calculate(moduleSimulation.getDriveWheelFinalSpeed().in(RadiansPerSecond));
+        } else {
+            driveController.reset();
+        }
+
+        if(steerClosedLoop) {
+            steerAppliedVoltage = steerController.calculate(moduleSimulation.getSteerAbsoluteFacing().getRadians());
+        } else {
+            steerController.reset();
+        }
+
+        driverMotor.requestVoltage(Volts.of(driveAppliedVoltage));
+        steerMotor.requestVoltage(Volts.of(steerAppliedVoltage));
+
         inputs.isDriveMotorConnected = true;
         inputs.drivePositionRadians = moduleSimulation.getDriveWheelFinalPosition().in(Radians);
         inputs.driveVelocityRadiansPerSecond = moduleSimulation.getDriveWheelFinalSpeed().in(RadiansPerSecond);
