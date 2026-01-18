@@ -101,7 +101,7 @@ public class DrivetrainConstants {
     public static final DriveTrainSimulationConfig kMapleSimConfiguration = DriveTrainSimulationConfig.Default()
         .withCustomModuleTranslations(kModuleTranslations)
         .withRobotMass(Kilogram.of(kRobotMassKilograms))
-        .withGyro(COTS.ofPigeon2())
+        .withGyro(COTS.ofNav2X())
         .withSwerveModule(
             new SwerveModuleSimulationConfig(
                 kDriveSimulatedGearbox,

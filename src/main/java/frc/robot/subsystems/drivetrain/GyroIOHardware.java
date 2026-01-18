@@ -8,7 +8,6 @@ import com.studica.frc.AHRS.NavXComType;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.util.Units;
 import frc.robot.constants.DrivetrainConstants;
-import frc.robot.subsystems.drivetrain.GyroIO.GyroIOInputs;
 
 public class GyroIOHardware implements GyroIO {
     private final AHRS gyro;
