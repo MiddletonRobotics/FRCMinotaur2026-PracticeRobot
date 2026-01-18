@@ -181,6 +181,7 @@ public class ModuleIOHardware implements ModuleIO {
         REVUtility.ifOk(driveMotor, driveEncoder::getVelocity, (v) -> inputs.driveVelocityRadiansPerSecond = v);
         REVUtility.ifOk(driveMotor, new DoubleSupplier[] {driveMotor::getAppliedOutput, driveMotor::getBusVoltage}, (v) -> inputs.driveAppliedVoltage = v[0] * v[1]);
         REVUtility.ifOk(driveMotor, driveMotor::getOutputCurrent, (v) -> inputs.driveCurrentAmperes = v);
+        REVUtility.ifOk(driveMotor, driveMotor::getMotorTemperature, (v) -> inputs.driveTempuratureCelsius = v);
         inputs.isDriveMotorConnected = driveConnectedDebouncer.calculate(!REVUtility.sparkStickyFault);
 
         REVUtility.sparkStickyFault = false;
@@ -188,6 +189,7 @@ public class ModuleIOHardware implements ModuleIO {
         REVUtility.ifOk(steerMotor, steerEncoder::getVelocity, (v) -> inputs.steerVelocityRadiansPerSecond = v);
         REVUtility.ifOk(steerMotor, new DoubleSupplier[] {steerMotor::getAppliedOutput, steerMotor::getBusVoltage}, (v) -> inputs.steerAppliedVoltage = v[0] * v[1]);
         REVUtility.ifOk(steerMotor, steerMotor::getOutputCurrent, (v) -> inputs.steerCurrentAmperes = v);
+        REVUtility.ifOk(steerMotor, steerMotor::getMotorTemperature, (v) -> inputs.driveTempuratureCelsius = v);
         inputs.isSteerMotorConnected = steerConnectedDebouncer.calculate(!REVUtility.sparkStickyFault);
 
         StatusCode swerveEncoderStatus = BaseStatusSignal.refreshAll(swerveEncoderPosition, swerveEncoderVelocity, swerveEncoderMagnetHealth, swerveEncoderSupplyVoltage);
