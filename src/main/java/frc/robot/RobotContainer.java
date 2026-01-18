@@ -7,8 +7,10 @@ package frc.robot;
 import org.ironmaple.simulation.SimulatedArena;
 import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
 import org.ironmaple.simulation.motorsims.SimulatedBattery;
+import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
+import com.google.flatbuffers.Constants;
 import com.pathplanner.lib.auto.AutoBuilder;
 
 import edu.wpi.first.math.geometry.Pose2d;
@@ -20,6 +22,7 @@ import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Direction;
 import frc.robot.commands.DrivetrainCommands;
 import frc.robot.constants.DrivetrainConstants;
 import frc.robot.constants.GlobalConstants;
+import frc.robot.constants.GlobalConstants.Mode;
 import frc.robot.subsystems.drivetrain.Drivetrain;
 import frc.robot.subsystems.drivetrain.GyroIO;
 import frc.robot.subsystems.drivetrain.GyroIOHardware;
@@ -43,7 +46,8 @@ public class RobotContainer {
           new ModuleIOHardware(0, DrivetrainConstants.kFrontLeftModuleConstants), 
           new ModuleIOHardware(1, DrivetrainConstants.kFrontRightModuleConstants), 
           new ModuleIOHardware(2, DrivetrainConstants.kBackLeftModuleConstants),
-          new ModuleIOHardware(3, DrivetrainConstants.kBackRightModuleConstants)
+          new ModuleIOHardware(3, DrivetrainConstants.kBackRightModuleConstants),
+          (pose) -> {}
         );
 
         break;
@@ -56,12 +60,13 @@ public class RobotContainer {
           new ModuleIOSimulation(driveSimulation.getModules()[0]), 
           new ModuleIOSimulation(driveSimulation.getModules()[1]), 
           new ModuleIOSimulation(driveSimulation.getModules()[2]), 
-          new ModuleIOSimulation(driveSimulation.getModules()[3])
+          new ModuleIOSimulation(driveSimulation.getModules()[3]),
+          driveSimulation::setSimulationWorldPose
         );
 
         break;
       default:
-        drivetrain = new Drivetrain(new GyroIO() {}, new ModuleIO() {}, new ModuleIO() {}, new ModuleIO() {}, new ModuleIO() {});
+        drivetrain = new Drivetrain(new GyroIO() {}, new ModuleIO() {}, new ModuleIO() {}, new ModuleIO() {}, new ModuleIO() {}, (pose) -> {});
         break;
     }
 
@@ -99,4 +104,19 @@ public class RobotContainer {
   public Command getAutonomousCommand() {
     return autonomousChooser.get();
   }
+
+  public void resetSimulationField() {
+        if (GlobalConstants.kCurrentMode != Mode.SIM) return;
+
+        drivetrain.setPose(new Pose2d(3, 3, new Rotation2d()));
+        SimulatedArena.getInstance().resetFieldForAuto();
+    }
+
+    public void updateSimulation() {
+        if (GlobalConstants.kCurrentMode != Mode.SIM) return;
+
+        SimulatedArena.getInstance().simulationPeriodic();
+        Logger.recordOutput("FieldSimulation/RobotPosition", driveSimulation.getSimulatedDriveTrainPose());
+        Logger.recordOutput("FieldSimulation/Coral", SimulatedArena.getInstance().getGamePiecesArrayByType("Fuel"));
+    }
 }
