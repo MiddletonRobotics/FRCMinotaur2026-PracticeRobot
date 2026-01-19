@@ -76,7 +76,7 @@ public class RobotContainer {
     autonomousChooser.addOption("Drivetrain SysId (Quasistatic Forward)", drivetrain.sysIdQuasistatic(Direction.kForward));
     autonomousChooser.addOption("Drivetrain SysId (Quasistatic Reverse)", drivetrain.sysIdQuasistatic(Direction.kReverse));
     autonomousChooser.addOption("Drivetrain SysId (Dynamic Forward)", drivetrain.sysIdDynamic(Direction.kForward));
-    autonomousChooser.addOption("Drivetrain SysId (Dynamic Forward)", drivetrain.sysIdDynamic(Direction.kReverse));
+    autonomousChooser.addOption("Drivetrain SysId (Dynamic Reverse)", drivetrain.sysIdDynamic(Direction.kReverse));
 
     configureBindings();
   }
