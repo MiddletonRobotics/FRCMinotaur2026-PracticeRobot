@@ -106,17 +106,17 @@ public class RobotContainer {
   }
 
   public void resetSimulationField() {
-        if (GlobalConstants.kCurrentMode != Mode.SIM) return;
+    if (GlobalConstants.kCurrentMode != Mode.SIM) return;
 
-        drivetrain.setPose(new Pose2d(3, 3, new Rotation2d()));
-        SimulatedArena.getInstance().resetFieldForAuto();
-    }
+    drivetrain.setPose(new Pose2d(3, 3, new Rotation2d()));
+    SimulatedArena.getInstance().resetFieldForAuto();
+  }
 
-    public void updateSimulation() {
-        if (GlobalConstants.kCurrentMode != Mode.SIM) return;
+  public void updateSimulation() {
+    if (GlobalConstants.kCurrentMode != Mode.SIM) return;
 
-        SimulatedArena.getInstance().simulationPeriodic();
-        Logger.recordOutput("FieldSimulation/RobotPosition", driveSimulation.getSimulatedDriveTrainPose());
-        Logger.recordOutput("FieldSimulation/Coral", SimulatedArena.getInstance().getGamePiecesArrayByType("Fuel"));
-    }
+    SimulatedArena.getInstance().simulationPeriodic();
+    Logger.recordOutput("FieldSimulation/RobotPosition", driveSimulation.getSimulatedDriveTrainPose());
+    Logger.recordOutput("FieldSimulation/Fuel", SimulatedArena.getInstance().getGamePiecesArrayByType("Fuel"));
+  }
 }
