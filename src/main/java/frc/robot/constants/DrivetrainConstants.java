@@ -12,6 +12,7 @@ import org.ironmaple.simulation.drivesims.configs.SwerveModuleSimulationConfig;
 import com.pathplanner.lib.config.ModuleConfig;
 import com.pathplanner.lib.config.RobotConfig;
 
+import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.system.plant.DCMotor;
@@ -21,6 +22,10 @@ import frc.robot.utilities.SwerveModuleType;
 public class DrivetrainConstants {
     public static final double kOdometryFrequency = 50.0;
     public static final SwerveModuleType kSwerveModuleType = SwerveModuleType.MK3_FAST;
+
+    public static final Pose2d kBlueLeftStartingPose = new Pose2d(3.500, 7.400, new Rotation2d(Math.toRadians(-45)));
+    public static final Pose2d kBlueCenterStartingPose = new Pose2d(3.550, 4.000, new Rotation2d(Math.toRadians(0)));
+    public static final Pose2d kBlueRightStartingPose = new Pose2d(3.500, 0.650, new Rotation2d(Math.toRadians(45)));
 
     public static final SwerveModuleConstants kFrontLeftModuleConstants = new SwerveModuleConstants(1, 2, 9, Rotation2d.fromRotations(-0.033447)); // replace with actual values
     public static final SwerveModuleConstants kFrontRightModuleConstants = new SwerveModuleConstants(3, 4, 10, Rotation2d.fromRotations(-0.478271)); // replace with actual values

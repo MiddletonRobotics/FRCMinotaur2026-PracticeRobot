@@ -38,10 +38,10 @@ public class RobotContainer {
 
   private SwerveDriveSimulation driveSimulation = null;
 
-  public RobotContainer() {
+  private Drivetrain buildDrivetrain() {
     switch (GlobalConstants.kCurrentMode) {
-      case REAL:
-        drivetrain = new Drivetrain(
+      case REAL -> {
+        return new Drivetrain(
           new GyroIOHardware(), 
           new ModuleIOHardware(0, DrivetrainConstants.kFrontLeftModuleConstants), 
           new ModuleIOHardware(1, DrivetrainConstants.kFrontRightModuleConstants), 
@@ -49,13 +49,13 @@ public class RobotContainer {
           new ModuleIOHardware(3, DrivetrainConstants.kBackRightModuleConstants),
           (pose) -> {}
         );
+      }
 
-        break;
-      case SIM:
+      case SIM -> {
         this.driveSimulation = new SwerveDriveSimulation(DrivetrainConstants.kMapleSimConfiguration, new Pose2d(3, 3, new Rotation2d()));
         SimulatedArena.getInstance().addDriveTrainSimulation(driveSimulation);
 
-        drivetrain = new Drivetrain(
+        return new Drivetrain(
           new GyroIOSimulation(driveSimulation.getGyroSimulation()), 
           new ModuleIOSimulation(driveSimulation.getModules()[0]), 
           new ModuleIOSimulation(driveSimulation.getModules()[1]), 
@@ -63,12 +63,20 @@ public class RobotContainer {
           new ModuleIOSimulation(driveSimulation.getModules()[3]),
           driveSimulation::setSimulationWorldPose
         );
+      }
 
-        break;
-      default:
-        drivetrain = new Drivetrain(new GyroIO() {}, new ModuleIO() {}, new ModuleIO() {}, new ModuleIO() {}, new ModuleIO() {}, (pose) -> {});
-        break;
+      default -> {
+        return new Drivetrain(new GyroIO() {}, new ModuleIO() {}, new ModuleIO() {}, new ModuleIO() {}, new ModuleIO() {}, (pose) -> {});
+      }
     }
+  }
+
+  public Drivetrain getDrivetrain() {
+    return drivetrain;
+  }
+
+  public RobotContainer() {
+    drivetrain = buildDrivetrain();
 
     autonomousChooser = new LoggedDashboardChooser<>("Auton Choices", AutoBuilder.buildAutoChooser());
     autonomousChooser.addOption("Drivetrain Wheel Radius Characterization", DrivetrainCommands.wheelRadiusCharacterization(drivetrain));
