@@ -1,8 +1,8 @@
 package frc.robot.subsystems.drivetrain;
 
-import static edu.wpi.first.units.Units.Rotation;
 import static edu.wpi.first.units.Units.Volts;
 
+import java.util.Optional;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
@@ -17,11 +17,15 @@ import com.pathplanner.lib.pathfinding.Pathfinding;
 import com.pathplanner.lib.util.PathPlannerLogging;
 
 import choreo.trajectory.SwerveSample;
+import choreo.trajectory.Trajectory;
+
+import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.estimator.SwerveDrivePoseEstimator;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Twist2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
@@ -29,10 +33,12 @@ import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
+import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
@@ -59,9 +65,23 @@ public class Drivetrain extends SubsystemBase {
         new SwerveModulePosition()
     };
 
-    private final PIDController xController = new PIDController(10.0, 0.0, 0.0);
-    private final PIDController yController = new PIDController(10.0, 0.0, 0.0);
-    private final PIDController headingController = new PIDController(7.5, 0.0, 0.0);
+    private final PIDController choreoXController = new PIDController(10.0, 0.0, 0.0);
+    private final PIDController choreoYController = new PIDController(10.0, 0.0, 0.0);
+    private final PIDController choreoThetaController = new PIDController(7.5, 0.0, 0.0);
+
+    private final PIDController autoDriveToPointController = new PIDController(6, 0, 0.1);
+    private final PIDController teleopDriveToPointController = new PIDController(3.6, 0, 0.3);
+    private final PIDController combinedRotationController = new PIDController(1, 0, 0.1);
+
+    private boolean isDriveToPointPoseApplied;
+    private Pose2d desiredDriveToPointPose;
+    private final Timer driveToPoseTimer = new Timer();
+    private Optional<Pose2d> driveToPointPoseToBeApplied;
+
+    private boolean isChoreoTracjectoryApplied = false;
+    private Trajectory<SwerveSample> desiredChoreoTrajectory;
+    private final Timer choreoTimer = new Timer();
+    private Optional<SwerveSample> choreoSampleToBeApplied;
     
     private SwerveDrivePoseEstimator poseEstimator = new SwerveDrivePoseEstimator(kinematics, rawGyroRotation, lastModulePositions, Pose2d.kZero);
     private final Consumer<Pose2d> resetSimulationPoseCallBack;
@@ -110,6 +130,8 @@ public class Drivetrain extends SubsystemBase {
             ), 
             new SysIdRoutine.Mechanism((v) -> runCharacterization(v.in(Volts)), null, this)
         );
+
+        combinedRotationController.enableContinuousInput(-Math.PI, Math.PI);
     }
 
     @Override
@@ -131,8 +153,8 @@ public class Drivetrain extends SubsystemBase {
         }
 
         if(DriverStation.isDisabled()) {
-            Logger.recordOutput("SwerveStates/Setpoints", new SwerveModuleState[] {});
-            Logger.recordOutput("SwerveStates/SetpointsOptimized", new SwerveModuleState[] {});
+            Logger.recordOutput("SwerveModuleStates/Setpoints", new SwerveModuleState[] {});
+            Logger.recordOutput("SwerveModuleStates/SetpointsOptimized", new SwerveModuleState[] {});
         }
 
         double[] sampleTimestamps = modules[0].getOdometryTimestamps(); 
@@ -164,26 +186,130 @@ public class Drivetrain extends SubsystemBase {
         SwerveModuleState[] setpointStates = kinematics.toSwerveModuleStates(discreteSpeeds);
         SwerveDriveKinematics.desaturateWheelSpeeds(setpointStates, DrivetrainConstants.kDriveMaximumSpeedMetersPerSecond);
 
-        Logger.recordOutput("SwerveStates/Setpoints", setpointStates);
+        Logger.recordOutput("SwerveModuleStates/Setpoints", setpointStates);
         Logger.recordOutput("SwerveChassisSpeeds/Setpoints", discreteSpeeds);
 
         for(int i = 0; i < modules.length; i++) {
             modules[i].runSetpoint(setpointStates[i]);
         }
 
-        Logger.recordOutput("SwerveStates/SetpointsOptimized", setpointStates);
+        Logger.recordOutput("SwerveModuleStates/SetpointsOptimized", setpointStates);
     }
 
-    public void followTrajectory(SwerveSample sample) {
-        Pose2d pose = getPose();
+    public void followTrajectory(Trajectory<SwerveSample> trajectory) {
+        if(!isChoreoTracjectoryApplied) {
+            choreoTimer.restart();
+            choreoSampleToBeApplied = desiredChoreoTrajectory.sampleAt(choreoTimer.get(), false);
+            isChoreoTracjectoryApplied = true;
+        } else {
+            choreoSampleToBeApplied = desiredChoreoTrajectory.sampleAt(choreoTimer.get(), false);
+        }
 
-        ChassisSpeeds chassisSpeeds = new ChassisSpeeds(
-            sample.vx + xController.calculate(pose.getX(), sample.x),
-            sample.vy + xController.calculate(pose.getY(), sample.y),
-            sample.omega + xController.calculate(pose.getRotation().getRadians(), sample.heading)
-        );
+        if (choreoSampleToBeApplied.isPresent()) {
+            var sample = choreoSampleToBeApplied.get();
+            
+            Logger.recordOutput("Choreo/Timer Value", choreoTimer.get());
+            Logger.recordOutput("Choreo/Trajectory Name", desiredChoreoTrajectory.name());
+            Logger.recordOutput("Choreo/Total Time", desiredChoreoTrajectory.getTotalTime());
+            Logger.recordOutput("Choreo/Sample/Desired Pose", sample.getPose());
+            Logger.recordOutput("Choreo/Sample/Desired Chassis Speeds", sample.getChassisSpeeds());
+            Logger.recordOutput("Choreo/Sample/Module Forces X", sample.moduleForcesX());
+            Logger.recordOutput("Choreo/Sample/Module Forces Y", sample.moduleForcesY());
 
-        runVelocity(chassisSpeeds);
+            Pose2d pose = getPose();
+            ChassisSpeeds targetSpeeds = sample.getChassisSpeeds();
+
+            targetSpeeds.vxMetersPerSecond += choreoXController.calculate(pose.getX(), sample.x);
+            targetSpeeds.vyMetersPerSecond += choreoYController.calculate(pose.getY(), sample.y);
+            targetSpeeds.omegaRadiansPerSecond += choreoThetaController.calculate(pose.getRotation().getRadians(), sample.heading);
+
+            runVelocity(targetSpeeds);
+        }
+    }
+
+    public void runDriveToPoint(double constraintedMaximumLinearVelocity, double constraintedMaximumAngularVelocity, Pose2d desiredPoseForDriveToPoint) {
+        if(!isDriveToPointPoseApplied) {
+            driveToPoseTimer.restart();
+            driveToPointPoseToBeApplied = Optional.of(desiredPoseForDriveToPoint);
+            isDriveToPointPoseApplied = true;
+        } else {
+            driveToPointPoseToBeApplied = Optional.of(desiredPoseForDriveToPoint);
+        }
+
+        if(driveToPointPoseToBeApplied.isPresent()) {
+            Translation2d translationToDesiredPoint = desiredPoseForDriveToPoint.getTranslation().minus(getPose().getTranslation());
+            double linearDistance = translationToDesiredPoint.getNorm();
+            double frictionConstant = 0.0;
+
+            if (linearDistance >= Units.inchesToMeters(0.5)) {
+                frictionConstant = 0.02 * DrivetrainConstants.kDriveMaximumSpeedMetersPerSecond;
+            }
+
+            Rotation2d directionOfTravel = translationToDesiredPoint.getAngle();
+            double velocityOutput = 0.0;
+
+            double currentHeading = getRotation().getRadians();
+            double targetHeading = desiredPoseForDriveToPoint.getRotation().getRadians();
+
+            double angularVelocity = combinedRotationController.calculate(currentHeading, targetHeading);
+
+            if (DriverStation.isAutonomous()) {
+                velocityOutput = Math.min(
+                    Math.abs(autoDriveToPointController.calculate(linearDistance, 0)) + frictionConstant,
+                    constraintedMaximumLinearVelocity
+                );
+            } else {
+                velocityOutput = Math.min(
+                    Math.abs(teleopDriveToPointController.calculate(linearDistance, 0)) + frictionConstant,
+                    constraintedMaximumLinearVelocity
+                );
+            }
+
+            double xComponent = velocityOutput * directionOfTravel.getCos();
+            double yComponent = velocityOutput * directionOfTravel.getSin();
+
+            Logger.recordOutput("Drivetrain/DriveToPoint/VelocitySetpointX", xComponent);
+            Logger.recordOutput("Drivetrain/DriveToPoint/VelocitySetpointY", yComponent);
+            Logger.recordOutput("Drivetrain/DriveToPoint/VelocityOutput", velocityOutput);
+            Logger.recordOutput("Drivetrain/DriveToPoint/LinearDistance", linearDistance);
+            Logger.recordOutput("Drivetrain/DriveToPoint/DirectionOfTravel", directionOfTravel);
+            Logger.recordOutput("Drivetrain/DriveToPoint/DesiredPoint", desiredPoseForDriveToPoint);
+            Logger.recordOutput("Drivetrain/DriveToPoint/DesiredHeading", targetHeading);
+            Logger.recordOutput("Drivetrain/DriveToPoint/CurrentHeading", currentHeading);
+
+            if (Double.isNaN(constraintedMaximumAngularVelocity)) {
+                runVelocity(new ChassisSpeeds(xComponent, yComponent, angularVelocity));
+            } else {
+                angularVelocity = MathUtil.clamp(angularVelocity, -constraintedMaximumAngularVelocity, constraintedMaximumAngularVelocity);
+                runVelocity(new ChassisSpeeds(xComponent, yComponent, angularVelocity));
+            }
+        }
+    }
+
+    public boolean isAtDriveToPointSetpoint() {
+        if (
+            MathUtil.isNear(desiredDriveToPointPose.getX(), getPose().getX(), Units.inchesToMeters(0.5)) && 
+            MathUtil.isNear(desiredDriveToPointPose.getY(), getPose().getY(), Units.inchesToMeters(0.5)) &&
+            isDriveToPointPoseApplied
+        ) {
+            isDriveToPointPoseApplied = false;
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    public boolean isAtChoreoSetpoint() {
+        if (
+            MathUtil.isNear(desiredChoreoTrajectory.getFinalPose(false).get().getX(), getPose().getX(), Units.inchesToMeters(0.5)) && 
+            MathUtil.isNear(desiredChoreoTrajectory.getFinalPose(false).get().getY(), getPose().getY(), Units.inchesToMeters(0.5)) &&
+            isChoreoTracjectoryApplied
+        ) {
+            isChoreoTracjectoryApplied = false;
+            return true;
+        } else {
+            return false;
+        }
     }
 
     public void runCharacterization(double output) {
@@ -265,6 +391,7 @@ public class Drivetrain extends SubsystemBase {
         return poseEstimator.getEstimatedPosition();
     }
 
+    @AutoLogOutput(key = "Odometry/Rotation")
     public Rotation2d getRotation() {
         return getPose().getRotation();
     }
