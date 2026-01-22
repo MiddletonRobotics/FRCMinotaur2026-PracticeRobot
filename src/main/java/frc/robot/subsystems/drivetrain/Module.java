@@ -85,10 +85,13 @@ public class Module {
         state.optimize(getAngle());
         state.cosineScale(inputs.steerPositionRadians);
 
-        io.setDriveVelocity(state.speedMetersPerSecond / DrivetrainConstants.kWheelRadiusMeters);
-
-        if(Math.abs(state.angle.getRadians() - getAngle().getRadians()) < 0.1) return;
-        io.setSteerPosition(state.angle);
+        if(Math.abs(state.speedMetersPerSecond) < 0.006) {
+            io.setDriveOpenLoop(0);
+            io.setSteerOpenLoop(0);
+        } else {
+            io.setDriveVelocity(state.speedMetersPerSecond / DrivetrainConstants.kWheelRadiusMeters);
+            io.setSteerPosition(state.angle);
+        }
     }
 
     public void runCharacterization(double output) {
