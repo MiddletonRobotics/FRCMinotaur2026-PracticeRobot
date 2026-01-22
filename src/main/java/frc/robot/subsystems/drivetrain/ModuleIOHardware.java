@@ -73,8 +73,6 @@ public class ModuleIOHardware implements ModuleIO {
     private StatusSignal<MagnetHealthValue> swerveEncoderMagnetHealth;
     private StatusSignal<Voltage> swerveEncoderSupplyVoltage;
 
-    private Rotation2d swerveEncoderOffset;
-
     public ModuleIOHardware(int moduleNumber, SwerveModuleConstants swerveModuleConstants) {
         driveMotor = new SparkMax(swerveModuleConstants.driveMotorID(), MotorType.kBrushless);
         steerMotor = new SparkMax(swerveModuleConstants.steerMotorID(), MotorType.kBrushless);
@@ -164,7 +162,7 @@ public class ModuleIOHardware implements ModuleIO {
             .outputCurrentPeriodMs(20);
 
         REVUtility.tryUntilOk(steerMotor, 5, () -> steerMotor.configure(steerConfiguration, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters));
-        REVUtility.tryUntilOk(steerMotor, 5, () -> steerEncoder.setPosition(swerveEncoderPosition.getValue().in(Radians)));
+        REVUtility.tryUntilOk(steerMotor, 5, () -> steerEncoder.setPosition(swerveEncoder.getAbsolutePosition(true).getValue().in(Radians)));
 
         timestampQueue = SparkOdometryThread.getInstance().makeTimestampQueue();
         drivePositionQueue = SparkOdometryThread.getInstance().registerSignal(driveMotor, driveEncoder::getPosition);
@@ -174,7 +172,7 @@ public class ModuleIOHardware implements ModuleIO {
     @Override
     public void updateInputs(ModuleIOInputs inputs) {
         REVUtility.sparkStickyFault = false;
-        inputs.steerPositionRadians = Rotation2d.fromRotations(swerveEncoderPosition.getValue().in(Rotations)); //REVUtility.ifOk(driveMotor, driveEncoder::getPosition, (v) -> inputs.drivePositionRadians = v);
+        REVUtility.ifOk(driveMotor, driveEncoder::getPosition, (v) -> inputs.drivePositionRadians = v);
         REVUtility.ifOk(driveMotor, driveEncoder::getVelocity, (v) -> inputs.driveVelocityRadiansPerSecond = v);
         REVUtility.ifOk(driveMotor, new DoubleSupplier[] {driveMotor::getAppliedOutput, driveMotor::getBusVoltage}, (v) -> inputs.driveAppliedVoltage = v[0] * v[1]);
         REVUtility.ifOk(driveMotor, driveMotor::getOutputCurrent, (v) -> inputs.driveCurrentAmperes = v);
