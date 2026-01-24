@@ -2,6 +2,7 @@ package frc.robot.subsystems.drivetrain;
 
 import static edu.wpi.first.units.Units.Volts;
 
+import java.lang.reflect.Field;
 import java.util.Optional;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -34,15 +35,18 @@ import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.math.util.Units;
+import edu.wpi.first.units.AngleUnit;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
+import edu.wpi.first.wpilibj.smartdashboard.Field2d;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
-
+import frc.minolib.math.MathUtility;
 import frc.robot.constants.DrivetrainConstants;
 import frc.robot.constants.GlobalConstants;
 import frc.robot.constants.GlobalConstants.Mode;
@@ -85,6 +89,7 @@ public class Drivetrain extends SubsystemBase {
     
     private SwerveDrivePoseEstimator poseEstimator = new SwerveDrivePoseEstimator(kinematics, rawGyroRotation, lastModulePositions, Pose2d.kZero);
     private final Consumer<Pose2d> resetSimulationPoseCallBack;
+    private Field2d field;
 
     public Drivetrain(GyroIO gyroIO, ModuleIO flModuleIO, ModuleIO frModuleIO, ModuleIO blModuleIO, ModuleIO brModuleIO, Consumer<Pose2d> resetSimulationPoseCallBack) {
         this.gyroIO = gyroIO;
@@ -132,6 +137,7 @@ public class Drivetrain extends SubsystemBase {
         );
 
         combinedRotationController.enableContinuousInput(-Math.PI, Math.PI);
+        field = new Field2d();
     }
 
     @Override
@@ -157,14 +163,18 @@ public class Drivetrain extends SubsystemBase {
             Logger.recordOutput("SwerveModuleStates/SetpointsOptimized", new SwerveModuleState[] {});
         }
 
-        double[] sampleTimestamps = modules[0].getOdometryTimestamps(); 
+        double[] sampleTimestamps = modules[0].getOdometryTimestamps();
         int sampleCount = sampleTimestamps.length;
+
         for (int i = 0; i < sampleCount; i++) {
             SwerveModulePosition[] modulePositions = new SwerveModulePosition[4];
             SwerveModulePosition[] moduleDeltas = new SwerveModulePosition[4];
             for (int moduleIndex = 0; moduleIndex < 4; moduleIndex++) {
                 modulePositions[moduleIndex] = modules[moduleIndex].getOdometryPositions()[i];
-                moduleDeltas[moduleIndex] = new SwerveModulePosition(modulePositions[moduleIndex].distanceMeters- lastModulePositions[moduleIndex].distanceMeters, modulePositions[moduleIndex].angle);
+                moduleDeltas[moduleIndex] = new SwerveModulePosition(
+                    modulePositions[moduleIndex].distanceMeters - lastModulePositions[moduleIndex].distanceMeters, modulePositions[moduleIndex].angle
+                );
+
                 lastModulePositions[moduleIndex] = modulePositions[moduleIndex];
             }
 
@@ -179,6 +189,9 @@ public class Drivetrain extends SubsystemBase {
         }
 
         gyroDisconnectedAlert.set(!gyroInputs.connected && GlobalConstants.kCurrentMode != Mode.SIM);
+
+        field.setRobotPose(getPose());
+        SmartDashboard.putData("Field", field);
     }
 
     public void runVelocity(ChassisSpeeds speeds) {
@@ -197,9 +210,11 @@ public class Drivetrain extends SubsystemBase {
     }
 
     public void followTrajectory(Trajectory<SwerveSample> trajectory) {
+        desiredChoreoTrajectory = trajectory;
+
         if(!isChoreoTracjectoryApplied) {
             choreoTimer.restart();
-            choreoSampleToBeApplied = desiredChoreoTrajectory.sampleAt(choreoTimer.get(), false);
+            choreoSampleToBeApplied = trajectory.sampleAt(choreoTimer.get(), false);
             isChoreoTracjectoryApplied = true;
         } else {
             choreoSampleToBeApplied = desiredChoreoTrajectory.sampleAt(choreoTimer.get(), false);
@@ -225,6 +240,23 @@ public class Drivetrain extends SubsystemBase {
 
             runVelocity(targetSpeeds);
         }
+    }
+
+    public Rotation2d computeAngleFromHub(Pose2d robotPose, Pose2d targetPose) {
+        double robotX = robotPose.getX();
+        double robotY = robotPose.getY();
+        double robotHeading = robotPose.getRotation().getRadians();
+
+        double turretX = robotX + 0 * Math.cos(robotHeading) - 0 * Math.sin(robotHeading);
+        double turretY = robotY + 0 * Math.sin(robotHeading) + 0 * Math.cos(robotHeading);
+
+        double dx = targetPose.getX() - turretX;
+        double dy = targetPose.getY() - turretY;
+
+        double targetAngleGlobal = Math.atan2(dy, dx);
+        double angleToGoal = targetAngleGlobal - robotHeading;
+        
+        return new Rotation2d(angleToGoal);
     }
 
     public void runDriveToPoint(double constraintedMaximumLinearVelocity, double constraintedMaximumAngularVelocity, Pose2d desiredPoseForDriveToPoint) {
