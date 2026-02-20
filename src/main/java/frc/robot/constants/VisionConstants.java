@@ -1,22 +1,43 @@
 package frc.robot.constants;
 
+import static edu.wpi.first.units.Units.Degrees;
+import static edu.wpi.first.units.Units.Inches;
+
 import edu.wpi.first.apriltag.AprilTagFieldLayout;
 import edu.wpi.first.apriltag.AprilTagFields;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.util.Units;
+import edu.wpi.first.units.measure.Distance;
+import frc.minolib.vision.CameraConfiguration;
+import frc.minolib.vision.CameraConfiguration.CameraLocation;
 
 public class VisionConstants {
-      public static AprilTagFieldLayout aprilTagLayout = AprilTagFieldLayout.loadField(AprilTagFields.kDefaultField);
+      public static final AprilTagFieldLayout kAprilTagLayout = AprilTagFieldLayout.loadField(AprilTagFields.kDefaultField);
 
-      public static String camera0Name = "frontLeft";
-      public static String camera1Name = "frontRight";
+      public static final String kFrontLeftCameraName = "frontLeft";
+      public static final String kFrontRightCameraName = "frontRight";
 
-      public static Transform3d robotToCamera0 = new Transform3d(Units.inchesToMeters(9.2837556), Units.inchesToMeters(1.6423085), Units.inchesToMeters(6.9584678), new Rotation3d(0.0, Units.degreesToRadians(340), Units.degreesToRadians(324)));
-      public static Transform3d robotToCamera1 = new Transform3d(Units.inchesToMeters(9.2859579), Units.inchesToMeters(-2.1461229), Units.inchesToMeters(6.9584678), new Rotation3d(0.0, Units.degreesToRadians(340), Units.degreesToRadians(36)));
+      public static final CameraConfiguration kFrontLeftConfiguration = new CameraConfiguration()
+            .withCameraName(kFrontLeftCameraName)
+            .withCameraLocation(CameraLocation.FRONT_LEFT)
+            .withLengthOffset(Inches.of(9.2837556))
+            .withWidthOffset(Inches.of(1.6423085))
+            .withHeightOffset(Inches.of(6.9584678))
+            .withMountingRoll(Degrees.of(340))
+            .withMountingYaw(Degrees.of(324));
 
-      public static double maxAmbiguity = 0.5;
-      public static double maxZError = 0.75;
+      public static final CameraConfiguration kFrontRightConfiguration = new CameraConfiguration()
+            .withCameraName(kFrontLeftCameraName)
+            .withCameraLocation(CameraLocation.FRONT_LEFT)
+            .withLengthOffset(Inches.of(9.2837556))
+            .withWidthOffset(Inches.of(1.6423085))
+            .withHeightOffset(Inches.of(6.9584678))
+            .withMountingRoll(Degrees.of(340))
+            .withMountingYaw(Degrees.of(324));
+
+      public static double kMaximumTagAmbiguity = 0.5;
+      public static Distance kMaximumZPoseError = Inches.of(0.625);
 
       public static double linearStdDevBaseline = 0.02; // Meters
       public static double angularStdDevBaseline = Double.POSITIVE_INFINITY; // Radians

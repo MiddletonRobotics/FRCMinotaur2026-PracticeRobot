@@ -15,6 +15,7 @@ import org.photonvision.targeting.PhotonPipelineResult;
 import edu.wpi.first.apriltag.AprilTagFieldLayout;
 import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.wpilibj.Timer;
+import frc.minolib.vision.CameraConfiguration;
 import frc.minolib.vision.PhotonFiducialResult;
 
 public class VisionIOPhotonVision implements VisionIO {
@@ -22,9 +23,9 @@ public class VisionIOPhotonVision implements VisionIO {
   protected PhotonPoseEstimator photonEstimator;
   private final List<PhotonFiducialResult> observations = new ArrayList<>();
 
-  public VisionIOPhotonVision(String cameraName, AprilTagFieldLayout layout, Transform3d robotToCamera) {
+  public VisionIOPhotonVision(final String cameraName, final CameraConfiguration cameraConfiguration, final AprilTagFieldLayout layout) {
     camera = new PhotonCamera(cameraName);
-    photonEstimator = new PhotonPoseEstimator(layout, robotToCamera);
+    photonEstimator = new PhotonPoseEstimator(layout, cameraConfiguration.getTransformOffset());
   }
 
   @Override

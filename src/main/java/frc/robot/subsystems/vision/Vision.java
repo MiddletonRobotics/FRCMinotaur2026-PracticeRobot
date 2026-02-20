@@ -60,18 +60,18 @@ public class Vision extends SubsystemBase {
             List<Pose3d> robotPosesRejected = new LinkedList<>();
 
             for (int tagId : inputs[cameraIndex].tagIds) {
-                var tagPose = VisionConstants.aprilTagLayout.getTagPose(tagId);
+                var tagPose = VisionConstants.kAprilTagLayout.getTagPose(tagId);
                 if (tagPose.isPresent()) {
                     tagPoses.add(tagPose.get());
                 }
             }
 
             for (var observation : inputs[cameraIndex].poseObservations) {
-                boolean rejectPose = observation.numTags() == 0 || (observation.numTags() == 1 && observation.averageAmbiguity() > VisionConstants.maxAmbiguity) //|| Math.abs(observation.cameraPose().getZ()) > VisionConstants.maxZError 
+                boolean rejectPose = observation.numTags() == 0 || (observation.numTags() == 1 && observation.averageAmbiguity() > VisionConstants.kMaximumTagAmbiguity) //|| Math.abs(observation.cameraPose().getZ()) > VisionConstants.maxZError 
                     || observation.cameraPose().getX() < 0.0
-                    || observation.cameraPose().getX() > VisionConstants.aprilTagLayout.getFieldLength()
+                    || observation.cameraPose().getX() > VisionConstants.kAprilTagLayout.getFieldLength() // TODO: Switch these to FieldConstants when they are imported
                     || observation.cameraPose().getY() < 0.0
-                    || observation.cameraPose().getY() > VisionConstants.aprilTagLayout.getFieldWidth();
+                    || observation.cameraPose().getY() > VisionConstants.kAprilTagLayout.getFieldWidth();
 
                 // Add pose to log
                 robotPoses.add(observation.cameraPose());

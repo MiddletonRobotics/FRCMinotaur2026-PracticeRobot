@@ -10,26 +10,20 @@ import edu.wpi.first.apriltag.AprilTagFieldLayout;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Transform3d;
+import frc.minolib.vision.CameraConfiguration;
 import frc.robot.constants.VisionConstants;
 
 public class VisionIOSimulation extends VisionIOPhotonVision {
-  private static final double DIAGONAL_FOV = 96.0; // FOV in degrees
-  private static final int kImgWidth = 1600; // image width in px
-  private static final int kImgHeight = 1200; // image heigh in px
+  private static final double DIAGONAL_FOV = 96.0; 
+  private static final int kImgWidth = 1600; 
+  private static final int kImgHeight = 1200; 
 
   private Supplier<Pose2d> poseSupplier;
   private VisionSystemSim visionSim;
   private PhotonCameraSim cameraSim;
 
-  /**
-   * Creates a new VisionIOSim object.
-   *
-   * @param layout the AprilTag field layout
-   * @param poseSupplier a Pose2d supplier that returns the robot's pose based on its odometry
-   * @param robotToCamera the transform from the robot's center to the simulated camera
-   */
-  public VisionIOSimulation(String cameraName, AprilTagFieldLayout layout, Supplier<Pose2d> poseSupplier, Transform3d robotToCamera) {
-    super(cameraName, layout, robotToCamera);
+  public VisionIOSimulation(final String cameraName, final CameraConfiguration cameraConfiguration, AprilTagFieldLayout layout, Supplier<Pose2d> poseSupplier) {
+    super(cameraName, cameraConfiguration, layout);
 
     this.poseSupplier = poseSupplier;
 
@@ -44,15 +38,9 @@ public class VisionIOSimulation extends VisionIOPhotonVision {
     cameraProp.setLatencyStdDevMs(30);
 
     this.cameraSim = new PhotonCameraSim(camera, cameraProp, layout);
-
-    visionSim.addCamera(cameraSim, robotToCamera);
+    visionSim.addCamera(cameraSim, cameraConfiguration.getTransformOffset());
   }
 
-  /**
-   * Updates the specified VisionIOInputs object with the latest data from the camera.
-   *
-   * @param inputs the VisionIOInputs object to update with the latest data from the camera
-   */
   @Override
   public void updateInputs(VisionIOInputs inputs) {
     this.visionSim.update(poseSupplier.get());
