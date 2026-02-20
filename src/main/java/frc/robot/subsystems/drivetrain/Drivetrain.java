@@ -12,6 +12,7 @@ import org.littletonrobotics.junction.Logger;
 
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.config.PIDConstants;
+import com.pathplanner.lib.config.RobotConfig;
 import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 import com.pathplanner.lib.pathfinding.Pathfinding;
 import com.pathplanner.lib.util.PathPlannerLogging;
@@ -58,6 +59,8 @@ public class Drivetrain extends SubsystemBase {
     private final SysIdRoutine sysID;
     private final Alert gyroDisconnectedAlert;
 
+    private RobotConfig configuration = null;
+
     private SwerveDriveKinematics kinematics = new SwerveDriveKinematics(DrivetrainConstants.kModuleTranslations);
     private Rotation2d rawGyroRotation = Rotation2d.kZero;
     private SwerveModulePosition[] lastModulePositions = new SwerveModulePosition[] {
@@ -101,6 +104,13 @@ public class Drivetrain extends SubsystemBase {
         gyroDisconnectedAlert = new Alert("Disconnected gyro, using kinematics as fallback.", AlertType.kWarning);
         SparkOdometryThread.getInstance().start();
 
+        try{
+            configuration = RobotConfig.fromGUISettings();
+        } catch (Exception e) {
+            // Handle exception as needed
+            e.printStackTrace();
+        }
+
         AutoBuilder.configure(
             this::getPose,
             this::setPose,
@@ -110,7 +120,7 @@ public class Drivetrain extends SubsystemBase {
                 new PIDConstants(5.0, 0.0, 0.0), 
                 new PIDConstants(5.0, 0.0, 0.0)
             ),
-            DrivetrainConstants.kPathPlannerConfiguration,
+            configuration,
             () -> DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red,
             this
         );
