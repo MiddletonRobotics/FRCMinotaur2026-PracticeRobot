@@ -64,7 +64,7 @@ public class Robot extends LoggedRobot {
 
   @Override
   public void disabledInit() {
-    robotContainer.resetSimulationField();
+    
   }
 
   @Override
@@ -113,7 +113,9 @@ public class Robot extends LoggedRobot {
   public void testExit() {}
 
   @Override
-  public void simulationInit() {}
+  public void simulationInit() {
+    robotContainer.resetSimulationField();
+  }
 
   @Override
   public void simulationPeriodic() {
