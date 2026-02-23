@@ -1,4 +1,4 @@
-package frc.robot.utilities;
+package frc.minolib.swerve;
 
 /**
  * COTS Swerve Module Gearing.
@@ -8,8 +8,8 @@ package frc.robot.utilities;
  */
 
 public enum SwerveModuleType {
-    MK3_STANDARD(GearRatio.MK3_STANDARD, false, GearRatio.MK3_STEERING, false),
-    MK3_FAST(GearRatio.MK3_FAST, false, GearRatio.MK3_STEERING, false),
+    MK3_STANDARD(GearRatio.MK3_STANDARD, true, GearRatio.MK3_STEERING, false),
+    MK3_FAST(GearRatio.MK3_FAST, true, GearRatio.MK3_STEERING, false),
     MK4_L1(GearRatio.MK4_L1, false, GearRatio.MK4_STEERING, false),
     MK4_L2(GearRatio.MK4_L2, false, GearRatio.MK4_STEERING, false),
     MK4_L3(GearRatio.MK4_L3, false, GearRatio.MK4_STEERING, false),
