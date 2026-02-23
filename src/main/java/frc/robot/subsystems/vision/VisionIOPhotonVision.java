@@ -22,6 +22,7 @@ public class VisionIOPhotonVision implements VisionIO {
   protected final PhotonCamera camera;
   protected PhotonPoseEstimator photonEstimator;
   private final List<PhotonFiducialResult> observations = new ArrayList<>();
+  Set<Short> tagIds = new HashSet<>();
 
   public VisionIOPhotonVision(final String cameraName, final CameraConfiguration cameraConfiguration, final AprilTagFieldLayout layout) {
     camera = new PhotonCamera(cameraName);
@@ -32,14 +33,13 @@ public class VisionIOPhotonVision implements VisionIO {
   public void updateInputs(VisionIOInputs inputs) {
     inputs.connected = camera.isConnected();
     observations.clear();
-
-    Set<Short> tagIds = new HashSet<>();
+    tagIds.clear();
 
     for (PhotonPipelineResult result : camera.getAllUnreadResults()) {
       Optional<EstimatedRobotPose> visionEstimate = photonEstimator.estimateCoprocMultiTagPose(result);
 
       if (visionEstimate.isEmpty()) {
-        visionEstimate = photonEstimator.estimateClosestToCameraHeightPose(result);
+        visionEstimate = photonEstimator.estimateAverageBestTargetsPose(result);
       }
 
       visionEstimate.ifPresent(estimate -> {

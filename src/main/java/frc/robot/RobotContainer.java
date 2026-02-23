@@ -21,12 +21,12 @@ import edu.wpi.first.apriltag.AprilTagFieldLayout;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.RobotController;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Direction;
 import frc.minolib.controller.CommandSimulatedXboxController;
-import frc.minolib.controller.SimulatedXboxController;
 import frc.robot.constants.DrivetrainConstants;
 import frc.robot.constants.GlobalConstants;
 import frc.robot.constants.VisionConstants;
@@ -90,8 +90,8 @@ public class RobotContainer {
       case REAL -> {
         return new Vision(
           drivetrain::addVisionMeasurement, 
-          new VisionIOPhotonVision(VisionConstants.kFrontLeftCameraName, VisionConstants.kFrontLeftConfiguration, VisionConstants.kAprilTagLayout) 
-          //new VisionIOPhotonVision(VisionConstants.kFrontRightCameraName, VisionConstants.kFrontRightConfiguration VisionConstants.aprilTagLayout)
+          new VisionIOPhotonVision(VisionConstants.kFrontLeftCameraName, VisionConstants.kFrontLeftConfiguration, VisionConstants.kAprilTagLayout), 
+          new VisionIOPhotonVision(VisionConstants.kFrontRightCameraName, VisionConstants.kFrontRightConfiguration, VisionConstants.kAprilTagLayout)
         );
       }
 
@@ -129,6 +129,7 @@ public class RobotContainer {
     autonomousChooser.addOption("Drivetrain SysId (Dynamic Forward)", drivetrain.sysIdDynamic(Direction.kForward));
     autonomousChooser.addOption("Drivetrain SysId (Dynamic Reverse)", drivetrain.sysIdDynamic(Direction.kReverse));
 
+    RobotController.setBrownoutVoltage(6.8);
     configureBindings();
   }
 
