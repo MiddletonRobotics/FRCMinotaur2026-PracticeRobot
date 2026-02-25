@@ -17,8 +17,7 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.util.Units;
-
-import frc.robot.utilities.SwerveModuleType;
+import frc.minolib.swerve.SwerveModuleType;
 
 public class DrivetrainConstants {
     public static final double kOdometryFrequency = 50.0;
@@ -29,10 +28,10 @@ public class DrivetrainConstants {
     public static final Pose2d kBlueRightStartingPose = new Pose2d(3.500, 0.650, new Rotation2d(Math.toRadians(45)));
     public static final Pose2d t = new Pose2d(4.616, 4.039, new Rotation2d(0));
 
-    public static final SwerveModuleConstants kFrontLeftModuleConstants = new SwerveModuleConstants(5, 6, 11, new Rotation2d(0.09 - 1.04));
-    public static final SwerveModuleConstants kFrontRightModuleConstants = new SwerveModuleConstants(1, 2, 9, new Rotation2d(1.773));
-    public static final SwerveModuleConstants kBackLeftModuleConstants = new SwerveModuleConstants(7, 8, 12, new Rotation2d(-3.203));
-    public static final SwerveModuleConstants kBackRightModuleConstants = new SwerveModuleConstants(3, 4, 10, new Rotation2d(-1.703));
+    public static final SwerveModuleConstants kFrontLeftModuleConstants = new SwerveModuleConstants(5, 6, 11, new Rotation2d(-0.95 + Math.PI));
+    public static final SwerveModuleConstants kFrontRightModuleConstants = new SwerveModuleConstants(1, 2, 9, new Rotation2d(1.773 - Math.PI));
+    public static final SwerveModuleConstants kBackLeftModuleConstants = new SwerveModuleConstants(7, 8, 12, new Rotation2d(-3.203 + Math.PI));
+    public static final SwerveModuleConstants kBackRightModuleConstants = new SwerveModuleConstants(3, 4, 10, new Rotation2d(-1.703 + Math.PI));
 
     public static final double kMaximumLinearVelocityMetersPerSecond = 4.5;
     public static final double kMaximumLinearAccelerationMetersPerSecondSquared = 9.0;

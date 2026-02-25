@@ -6,7 +6,7 @@ import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
 
 /** Represents a robot pose estimate from vision with associated uncertainty and metadata. */
-public class VisionPoseEstimate {
+public class WeightedPoseEstimate {
 
     private final Pose2d visionRobotPoseMeters;
     private final double timestampSeconds;
@@ -22,7 +22,7 @@ public class VisionPoseEstimate {
      * @param numTags Number of AprilTags used in this pose estimate
      */
     
-    public VisionPoseEstimate(Pose2d visionRobotPoseMeters, double timestampSeconds, Matrix<N3, N1> visionMeasurementStdDevs, int numTags) {
+    public WeightedPoseEstimate(Pose2d visionRobotPoseMeters, double timestampSeconds, Matrix<N3, N1> visionMeasurementStdDevs, int numTags) {
         this.visionRobotPoseMeters = visionRobotPoseMeters;
         this.timestampSeconds = timestampSeconds;
         this.visionMeasurementStdDevs = visionMeasurementStdDevs;

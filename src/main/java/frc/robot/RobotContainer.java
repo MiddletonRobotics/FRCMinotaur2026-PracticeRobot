@@ -4,6 +4,10 @@
 
 package frc.robot;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.function.Consumer;
+
 import org.ironmaple.simulation.SimulatedArena;
 import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
 
@@ -11,19 +15,23 @@ import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
 import com.pathplanner.lib.auto.AutoBuilder;
+import com.pathplanner.lib.config.RobotConfig;
 
 import frc.robot.command_factories.DrivetrainFactory;
+import edu.wpi.first.apriltag.AprilTagFieldLayout;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.RobotController;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Direction;
 import frc.minolib.controller.CommandSimulatedXboxController;
-import frc.minolib.controller.SimulatedXboxController;
+import frc.minolib.localization.WeightedPoseEstimate;
 import frc.robot.constants.DrivetrainConstants;
 import frc.robot.constants.GlobalConstants;
+import frc.robot.constants.VisionConstants;
 import frc.robot.constants.GlobalConstants.Mode;
 import frc.robot.subsystems.drivetrain.Drivetrain;
 import frc.robot.subsystems.drivetrain.GyroIO;
@@ -32,9 +40,23 @@ import frc.robot.subsystems.drivetrain.GyroIOSimulation;
 import frc.robot.subsystems.drivetrain.ModuleIO;
 import frc.robot.subsystems.drivetrain.ModuleIOHardware;
 import frc.robot.subsystems.drivetrain.ModuleIOSimulation;
+import frc.robot.subsystems.vision.Vision;
+import frc.robot.subsystems.vision.VisionIO;
+import frc.robot.subsystems.vision.VisionIOPhotonVision;
+import frc.robot.subsystems.vision.VisionIOSimulation;
 
 public class RobotContainer {
+  private final Consumer<WeightedPoseEstimate> visionEstimateConsumer = new Consumer<WeightedPoseEstimate>() {
+    @Override
+    public void accept(WeightedPoseEstimate estimate) {
+        drivetrain.addVisionMeasurement(estimate);
+    }
+  };
+
+  private final RobotState robotState = new RobotState(visionEstimateConsumer);
   private final Drivetrain drivetrain;
+  private final Vision vision;
+
   private final CommandSimulatedXboxController primaryController = new CommandSimulatedXboxController(0);
   private final LoggedDashboardChooser<Command> autonomousChooser;
 
@@ -44,6 +66,7 @@ public class RobotContainer {
     switch (GlobalConstants.kCurrentMode) {
       case REAL -> {
         return new Drivetrain(
+          robotState,
           new GyroIOHardware(), 
           new ModuleIOHardware(0, DrivetrainConstants.kFrontLeftModuleConstants), 
           new ModuleIOHardware(1, DrivetrainConstants.kFrontRightModuleConstants), 
@@ -58,6 +81,7 @@ public class RobotContainer {
         SimulatedArena.getInstance().addDriveTrainSimulation(driveSimulation);
 
         return new Drivetrain(
+          robotState,
           new GyroIOSimulation(driveSimulation.getGyroSimulation()), 
           new ModuleIOSimulation(driveSimulation.getModules()[0]), 
           new ModuleIOSimulation(driveSimulation.getModules()[1]), 
@@ -68,17 +92,46 @@ public class RobotContainer {
       }
 
       default -> {
-        return new Drivetrain(new GyroIO() {}, new ModuleIO() {}, new ModuleIO() {}, new ModuleIO() {}, new ModuleIO() {}, (pose) -> {});
+        return new Drivetrain(robotState, new GyroIO() {}, new ModuleIO() {}, new ModuleIO() {}, new ModuleIO() {}, new ModuleIO() {}, (pose) -> {});
       }
     }
   }
 
-  public Drivetrain getDrivetrain() {
+  public Vision buildAprilTagVision() {
+    switch (GlobalConstants.kCurrentMode) {
+      case REAL -> {
+        return new Vision(
+          robotState,
+          new VisionIOPhotonVision(VisionConstants.kFrontLeftCameraName, VisionConstants.kFrontLeftConfiguration, VisionConstants.kAprilTagLayout), 
+          new VisionIOPhotonVision(VisionConstants.kFrontRightCameraName, VisionConstants.kFrontRightConfiguration, VisionConstants.kAprilTagLayout)
+        );
+      }
+
+      case SIM -> {
+        return new Vision(
+          robotState, 
+          new VisionIOSimulation(VisionConstants.kFrontLeftCameraName, VisionConstants.kFrontLeftConfiguration, VisionConstants.kAprilTagLayout, drivetrain::getPose), 
+          new VisionIOSimulation(VisionConstants.kFrontRightCameraName, VisionConstants.kFrontRightConfiguration, VisionConstants.kAprilTagLayout, drivetrain::getPose)
+        );
+      }
+
+      default -> {
+        return new Vision(robotState, new VisionIO() {}, new VisionIO() {});
+      }
+    }
+  }
+
+  public Drivetrain getDrivetrain() { 
     return drivetrain;
+  }
+
+  public Vision getAprilTagVision() {
+    return vision;
   }
 
   public RobotContainer() {
     drivetrain = buildDrivetrain();
+    vision = buildAprilTagVision();
 
     autonomousChooser = new LoggedDashboardChooser<Command>("Auton Choices", AutoBuilder.buildAutoChooser());
     autonomousChooser.addOption("Drivetrain Wheel Radius Characterization", DrivetrainFactory.wheelRadiusCharacterization(drivetrain));
@@ -88,6 +141,7 @@ public class RobotContainer {
     autonomousChooser.addOption("Drivetrain SysId (Dynamic Forward)", drivetrain.sysIdDynamic(Direction.kForward));
     autonomousChooser.addOption("Drivetrain SysId (Dynamic Reverse)", drivetrain.sysIdDynamic(Direction.kReverse));
 
+    RobotController.setBrownoutVoltage(6.8);
     configureBindings();
   }
 
