@@ -37,12 +37,12 @@ public class VisionConstants {
       public static double kMaximumTagAmbiguity = 0.15;
       public static Distance kMaximumZPoseError = Inches.of(0.5);
 
-      public static double linearStdDevBaseline = 0.005; // Meters
+      public static double linearStdDevBaseline = 0.02; // Meters
       public static double angularStdDevBaseline = Double.POSITIVE_INFINITY; // Radians
 
       public static double[] cameraStdDevFactors = new double[] {
-            0.9, // Camera 0
-            0.9 // Camera 1
+            1.0, // Camera 0
+            1.0 // Camera 1
       };
 
       public static double linearStdDevMegatag2Factor = 0.5; 

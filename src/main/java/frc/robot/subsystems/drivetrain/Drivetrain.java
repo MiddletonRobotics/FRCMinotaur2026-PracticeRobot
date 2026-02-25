@@ -21,7 +21,6 @@ import choreo.trajectory.SwerveSample;
 import choreo.trajectory.Trajectory;
 
 import edu.wpi.first.math.MathUtil;
-import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.estimator.SwerveDrivePoseEstimator;
 import edu.wpi.first.math.geometry.Pose2d;
@@ -32,8 +31,6 @@ import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
-import edu.wpi.first.math.numbers.N1;
-import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.DriverStation;
@@ -46,6 +43,9 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 
+import frc.minolib.localization.WeightedPoseEstimate;
+import frc.minolib.wpilib.RobotTime;
+import frc.robot.RobotState;
 import frc.robot.constants.DrivetrainConstants;
 import frc.robot.constants.GlobalConstants;
 import frc.robot.constants.GlobalConstants.Mode;
@@ -60,6 +60,7 @@ public class Drivetrain extends SubsystemBase {
     private final Alert gyroDisconnectedAlert;
 
     private RobotConfig configuration = null;
+    private final RobotState robotState;
 
     private SwerveDriveKinematics kinematics = new SwerveDriveKinematics(DrivetrainConstants.kModuleTranslations);
     private Rotation2d rawGyroRotation = Rotation2d.kZero;
@@ -68,6 +69,13 @@ public class Drivetrain extends SubsystemBase {
         new SwerveModulePosition(), 
         new SwerveModulePosition(),
         new SwerveModulePosition()
+    };
+
+    private SwerveModuleState[] targetModuleStates = new SwerveModuleState[] {
+        new SwerveModuleState(),
+        new SwerveModuleState(), 
+        new SwerveModuleState(),
+        new SwerveModuleState()
     };
 
     private final PIDController choreoXController = new PIDController(10.0, 0.0, 0.0);
@@ -92,8 +100,9 @@ public class Drivetrain extends SubsystemBase {
     private final Consumer<Pose2d> resetSimulationPoseCallBack;
     private Field2d field;
 
-    public Drivetrain(GyroIO gyroIO, ModuleIO flModuleIO, ModuleIO frModuleIO, ModuleIO blModuleIO, ModuleIO brModuleIO, Consumer<Pose2d> resetSimulationPoseCallBack) {
+    public Drivetrain(RobotState robotState, GyroIO gyroIO, ModuleIO flModuleIO, ModuleIO frModuleIO, ModuleIO blModuleIO, ModuleIO brModuleIO, Consumer<Pose2d> resetSimulationPoseCallBack) {
         this.gyroIO = gyroIO;
+        this.robotState = robotState;
         this.resetSimulationPoseCallBack = resetSimulationPoseCallBack;
 
         modules[0] = new Module(flModuleIO, 0);
@@ -195,6 +204,27 @@ public class Drivetrain extends SubsystemBase {
 
             poseEstimator.updateWithTime(sampleTimestamps[i], rawGyroRotation, modulePositions);
         }
+
+        var measuredRobotRelativeChassisSpeeds = kinematics.toChassisSpeeds(getModuleStates());
+        var measuredFieldRelativeChassisSpeeds = ChassisSpeeds.fromRobotRelativeSpeeds(measuredRobotRelativeChassisSpeeds, gyroInputs.yawPosition);
+        var desiredRobotRelativeChassisSpeeds = kinematics.toChassisSpeeds(targetModuleStates);
+        var desiredFieldRelativeChassisSpeeds = ChassisSpeeds.fromRobotRelativeSpeeds(desiredRobotRelativeChassisSpeeds, gyroInputs.yawPosition);
+
+        robotState.addDriveMotionMeasurements(
+            RobotTime.getTimestampSeconds(),
+            gyroInputs.yawVelocityRadiansPerSecond, 
+            gyroInputs.pitchVelocityRadiansPerSecond, 
+            gyroInputs.rollVelocityRadiansPerSecond, 
+            gyroInputs.yawPosition.getRadians(), 
+            gyroInputs.pitchPosition.getRadians(), 
+            gyroInputs.rollPosition.getRadians(), 
+            0.0, 
+            0.0, 
+            measuredRobotRelativeChassisSpeeds, 
+            measuredFieldRelativeChassisSpeeds, 
+            desiredRobotRelativeChassisSpeeds, 
+            desiredFieldRelativeChassisSpeeds
+        );
 
         gyroDisconnectedAlert.set(!gyroInputs.connected && GlobalConstants.kCurrentMode != Mode.SIM);
 
@@ -443,8 +473,8 @@ public class Drivetrain extends SubsystemBase {
         poseEstimator.resetPosition(rawGyroRotation, getModulePositions(), pose);
     }
 
-    public void addVisionMeasurement(Pose2d visionRobotPoseMeters, double timestampSeconds, Matrix<N3, N1> visionMeasurementStdDevs) {
-        poseEstimator.addVisionMeasurement(visionRobotPoseMeters, timestampSeconds, visionMeasurementStdDevs);
+    public void addVisionMeasurement(WeightedPoseEstimate weightedPoseEstimate) {
+        poseEstimator.addVisionMeasurement(weightedPoseEstimate.getVisionRobotPoseMeters(), weightedPoseEstimate.getTimestampSeconds(), weightedPoseEstimate.getVisionMeasurementStdDevs());
     }
 
     public double getMaxLinearSpeedMetersPerSecond() {

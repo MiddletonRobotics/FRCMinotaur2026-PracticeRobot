@@ -24,8 +24,14 @@ public class GyroIOHardware implements GyroIO {
     @Override
     public void updateInputs(GyroIOInputs inputs) {
         inputs.connected = gyro.isConnected();
+
         inputs.yawPosition = Rotation2d.fromDegrees(gyro.getAngle() * -1);
+        inputs.pitchPosition = Rotation2d.fromDegrees(gyro.getPitch() * -1);
+        inputs.rollPosition = Rotation2d.fromDegrees(gyro.getRoll() * -1);
+
         inputs.yawVelocityRadiansPerSecond = Units.degreesToRadians(gyro.getRawGyroZ() * -1);
+        inputs.pitchVelocityRadiansPerSecond = Units.degreesToRadians(gyro.getRawGyroX() * -1);
+        inputs.rollVelocityRadiansPerSecond = Units.degreesToRadians(gyro.getRawGyroY() * -1);
 
         inputs.odometryYawTimestamps = yawTimestampQueue.stream().mapToDouble((Double v) -> v).toArray();
         inputs.odometryYawPositions = yawPositionQueue.stream().map((Double v) -> Rotation2d.fromDegrees(v * -1)).toArray(Rotation2d[]::new);

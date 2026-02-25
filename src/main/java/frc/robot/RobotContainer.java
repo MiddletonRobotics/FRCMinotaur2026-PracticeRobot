@@ -6,6 +6,7 @@ package frc.robot;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.function.Consumer;
 
 import org.ironmaple.simulation.SimulatedArena;
 import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
@@ -27,6 +28,7 @@ import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Direction;
 import frc.minolib.controller.CommandSimulatedXboxController;
+import frc.minolib.localization.WeightedPoseEstimate;
 import frc.robot.constants.DrivetrainConstants;
 import frc.robot.constants.GlobalConstants;
 import frc.robot.constants.VisionConstants;
@@ -44,6 +46,14 @@ import frc.robot.subsystems.vision.VisionIOPhotonVision;
 import frc.robot.subsystems.vision.VisionIOSimulation;
 
 public class RobotContainer {
+  private final Consumer<WeightedPoseEstimate> visionEstimateConsumer = new Consumer<WeightedPoseEstimate>() {
+    @Override
+    public void accept(WeightedPoseEstimate estimate) {
+        drivetrain.addVisionMeasurement(estimate);
+    }
+  };
+
+  private final RobotState robotState = new RobotState(visionEstimateConsumer);
   private final Drivetrain drivetrain;
   private final Vision vision;
 
@@ -56,6 +66,7 @@ public class RobotContainer {
     switch (GlobalConstants.kCurrentMode) {
       case REAL -> {
         return new Drivetrain(
+          robotState,
           new GyroIOHardware(), 
           new ModuleIOHardware(0, DrivetrainConstants.kFrontLeftModuleConstants), 
           new ModuleIOHardware(1, DrivetrainConstants.kFrontRightModuleConstants), 
@@ -70,6 +81,7 @@ public class RobotContainer {
         SimulatedArena.getInstance().addDriveTrainSimulation(driveSimulation);
 
         return new Drivetrain(
+          robotState,
           new GyroIOSimulation(driveSimulation.getGyroSimulation()), 
           new ModuleIOSimulation(driveSimulation.getModules()[0]), 
           new ModuleIOSimulation(driveSimulation.getModules()[1]), 
@@ -80,7 +92,7 @@ public class RobotContainer {
       }
 
       default -> {
-        return new Drivetrain(new GyroIO() {}, new ModuleIO() {}, new ModuleIO() {}, new ModuleIO() {}, new ModuleIO() {}, (pose) -> {});
+        return new Drivetrain(robotState, new GyroIO() {}, new ModuleIO() {}, new ModuleIO() {}, new ModuleIO() {}, new ModuleIO() {}, (pose) -> {});
       }
     }
   }
@@ -89,7 +101,7 @@ public class RobotContainer {
     switch (GlobalConstants.kCurrentMode) {
       case REAL -> {
         return new Vision(
-          drivetrain::addVisionMeasurement, 
+          robotState,
           new VisionIOPhotonVision(VisionConstants.kFrontLeftCameraName, VisionConstants.kFrontLeftConfiguration, VisionConstants.kAprilTagLayout), 
           new VisionIOPhotonVision(VisionConstants.kFrontRightCameraName, VisionConstants.kFrontRightConfiguration, VisionConstants.kAprilTagLayout)
         );
@@ -97,14 +109,14 @@ public class RobotContainer {
 
       case SIM -> {
         return new Vision(
-          drivetrain::addVisionMeasurement, 
+          robotState, 
           new VisionIOSimulation(VisionConstants.kFrontLeftCameraName, VisionConstants.kFrontLeftConfiguration, VisionConstants.kAprilTagLayout, drivetrain::getPose), 
           new VisionIOSimulation(VisionConstants.kFrontRightCameraName, VisionConstants.kFrontRightConfiguration, VisionConstants.kAprilTagLayout, drivetrain::getPose)
         );
       }
 
       default -> {
-        return new Vision(drivetrain::addVisionMeasurement, new VisionIO() {}, new VisionIO() {});
+        return new Vision(robotState, new VisionIO() {}, new VisionIO() {});
       }
     }
   }

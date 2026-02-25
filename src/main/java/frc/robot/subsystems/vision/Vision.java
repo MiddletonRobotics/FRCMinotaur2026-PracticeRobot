@@ -1,7 +1,11 @@
 package frc.robot.subsystems.vision;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 import org.littletonrobotics.junction.Logger;
 
@@ -10,22 +14,27 @@ import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Transform2d;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.minolib.localization.WeightedPoseEstimate;
+import frc.robot.RobotState;
 import frc.robot.constants.VisionConstants;
 import frc.robot.subsystems.vision.VisionIO.PoseObservationType;
 
 public class Vision extends SubsystemBase {
-    private final VisionConsumer consumer;
     private final VisionIO[] io;
+    private final RobotState robotState;
     private final VisionIOInputsAutoLogged[] inputs;
     private final Alert[] disconnectedAlerts;
 
-    public Vision(VisionConsumer consumer, VisionIO... io) {
-        this.consumer = consumer;
+    List<WeightedPoseEstimate> allPoseEstimates = new ArrayList<>();
+
+    public Vision(RobotState robotState, VisionIO... io) {
+        this.robotState = robotState;
         this.io = io;
 
         this.inputs = new VisionIOInputsAutoLogged[io.length];
@@ -73,7 +82,6 @@ public class Vision extends SubsystemBase {
                     || observation.cameraPose().getY() < 0.0
                     || observation.cameraPose().getY() > VisionConstants.kAprilTagLayout.getFieldWidth();
 
-                // Add pose to log
                 robotPoses.add(observation.cameraPose());
 
                 if (rejectPose) {
@@ -82,26 +90,26 @@ public class Vision extends SubsystemBase {
                     robotPosesAccepted.add(observation.cameraPose());
                 }
 
-                // Skip if rejected
                 if (rejectPose) {
                     continue;
                 }
 
-                double stdDevFactor = Math.pow(observation.averageTagDistance(), 2.0) / observation.numTags();
-                double linearStdDev = VisionConstants.linearStdDevBaseline * stdDevFactor;
-                double angularStdDev = VisionConstants.angularStdDevBaseline * stdDevFactor;
-
+                double linearStdDev = VisionConstants.linearStdDevBaseline * (Math.pow(observation.averageTagDistance(), 2.0) / observation.numTags());
+                
                 if (cameraIndex < VisionConstants.cameraStdDevFactors.length) {
                     linearStdDev *= VisionConstants.cameraStdDevFactors[cameraIndex];
-                    angularStdDev *= VisionConstants.cameraStdDevFactors[cameraIndex];
                 }
-
-                //Send vision observation
-                consumer.accept(
+                
+                allPoseEstimates.add(new WeightedPoseEstimate(
                     observation.cameraPose().toPose2d(),
                     observation.timestamp(),
-                    VecBuilder.fill(linearStdDev, linearStdDev, angularStdDev)
-                );
+                    VecBuilder.fill(
+                        linearStdDev,   
+                        linearStdDev,   
+                        VisionConstants.angularStdDevBaseline  
+                    ),
+                    observation.numTags()
+                ));
             }
 
             Logger.recordOutput("Vision/Camera" + Integer.toString(cameraIndex) + "/TagPoses", tagPoses.toArray(new Pose3d[0]));
@@ -120,6 +128,165 @@ public class Vision extends SubsystemBase {
         Logger.recordOutput("Vision/Summary/RobotPoses", allRobotPoses.toArray(new Pose3d[0]));
         Logger.recordOutput("Vision/Summary/RobotPosesAccepted", allRobotPosesAccepted.toArray(new Pose3d[0]));
         Logger.recordOutput("Vision/Summary/RobotPosesRejected", allRobotPosesRejected.toArray(new Pose3d[0]));
+
+        Map<Double, List<WeightedPoseEstimate>> grouped = groupByTimestamp(allPoseEstimates, 0.02);
+    
+        for (var group : grouped.values()) {
+            if (group.size() == 1) {
+                var obs = group.get(0);
+                robotState.updatePoseEstimate(obs);
+            } else {
+                var fused = fuseObservations(group);
+                robotState.updatePoseEstimate(fused);
+            }
+        }
+    }
+
+    private Map<Double, List<WeightedPoseEstimate>> groupByTimestamp(List<WeightedPoseEstimate> observations, double tolerance) {
+        Map<Double, List<WeightedPoseEstimate>> groups = new HashMap<>();
+        
+        for (var obs : observations) {
+            boolean foundGroup = false;
+            for (var key : groups.keySet()) {
+                if (Math.abs(obs.getTimestampSeconds() - key) < tolerance) {
+                    groups.get(key).add(obs);
+                    foundGroup = true;
+                    break;
+                }
+            }
+            if (!foundGroup) {
+                groups.put(obs.getTimestampSeconds(), new ArrayList<>(List.of(obs)));
+            }
+        }
+        
+        return groups;
+    }
+
+    private WeightedPoseEstimate fuseObservations(List<WeightedPoseEstimate> observations) {
+        if (observations.isEmpty()) {
+            //continue;
+        }
+        
+        if (observations.size() == 1) {
+            return observations.get(0);
+        }
+        
+        observations.sort(Comparator.comparingDouble(WeightedPoseEstimate::getTimestampSeconds));
+        double targetTimestamp = observations.get(observations.size() - 1).getTimestampSeconds();
+        
+        // Project all poses to target timestamp using odometry
+        List<Pose2d> alignedPoses = new ArrayList<>();
+        List<Matrix<N3, N1>> alignedStdDevs = new ArrayList<>();
+        
+        for (var obs : observations) {
+            Pose2d alignedPose;
+            
+            if (Math.abs(obs.getTimestampSeconds() - targetTimestamp) < 0.001) {
+                // Already at target time (within 1ms)
+                alignedPose = obs.getVisionRobotPoseMeters();
+            } else {
+                // Need to project forward in time
+                var poseAtObsTime = robotState.getFieldToRobot(obs.getTimestampSeconds());
+                var poseAtTargetTime = robotState.getFieldToRobot(targetTimestamp);
+                
+                if (poseAtObsTime.isEmpty() || poseAtTargetTime.isEmpty()) {
+                    continue;
+                }
+                
+                Transform2d motion = poseAtTargetTime.get().minus(poseAtObsTime.get());
+                
+                alignedPose = obs.getVisionRobotPoseMeters().transformBy(motion);
+            }
+            
+            alignedPoses.add(alignedPose);
+            alignedStdDevs.add(obs.getVisionMeasurementStdDevs());
+        }
+        
+        if (alignedPoses.isEmpty()) {
+            // Couldn't align any poses - return newest observation as fallback
+            return observations.get(observations.size() - 1);
+        }
+        
+        // Now fuse the temporally-aligned poses
+        double weightedX = 0;
+        double weightedY = 0;
+        double totalWeightX = 0;
+        double totalWeightY = 0;
+        
+        // For rotation: track if we should fuse it or just pick one
+        boolean hasValidRotation = false;
+        double weightedCos = 0;
+        double weightedSin = 0;
+        double totalRotWeight = 0;
+        
+        for (int i = 0; i < alignedPoses.size(); i++) {
+            Pose2d pose = alignedPoses.get(i);
+            Matrix<N3, N1> stdDevs = alignedStdDevs.get(i);
+            
+            double xStdDev = stdDevs.get(0, 0);
+            double yStdDev = stdDevs.get(1, 0);
+            double rotStdDev = stdDevs.get(2, 0);
+            
+            // X and Y fusion (always valid)
+            double xVariance = xStdDev * xStdDev;
+            double yVariance = yStdDev * yStdDev;
+            double xWeight = 1.0 / xVariance;
+            double yWeight = 1.0 / yVariance;
+            
+            weightedX += pose.getX() * xWeight;
+            weightedY += pose.getY() * yWeight;
+            totalWeightX += xWeight;
+            totalWeightY += yWeight;
+            
+            // Rotation fusion (only if stdDev is reasonable)
+            if (rotStdDev < 100.0) { // Arbitrary threshold - adjust as needed
+                hasValidRotation = true;
+                double rotVariance = rotStdDev * rotStdDev;
+                double rotWeight = 1.0 / rotVariance;
+                
+                // Use cos/sin to handle angle wraparound properly
+                weightedCos += pose.getRotation().getCos() * rotWeight;
+                weightedSin += pose.getRotation().getSin() * rotWeight;
+                totalRotWeight += rotWeight;
+            }
+        }
+        
+        // Calculate fused X and Y
+        double fusedX = weightedX / totalWeightX;
+        double fusedY = weightedY / totalWeightY;
+        
+        // Calculate fused rotation
+        Rotation2d fusedRotation;
+        double fusedRotStdDev;
+        
+        if (hasValidRotation && totalRotWeight > 0) {
+            // Fuse rotations using trigonometry
+            fusedRotation = new Rotation2d(weightedCos, weightedSin);
+            fusedRotStdDev = Math.sqrt(1.0 / totalRotWeight);
+        } else {
+            // No valid rotation data - use newest pose's rotation
+            fusedRotation = alignedPoses.get(alignedPoses.size() - 1).getRotation();
+            fusedRotStdDev = Double.POSITIVE_INFINITY; // Don't trust it
+        }
+        
+        // Build fused standard deviations
+        Matrix<N3, N1> fusedStdDevs = VecBuilder.fill(
+            Math.sqrt(1.0 / totalWeightX),
+            Math.sqrt(1.0 / totalWeightY),
+            fusedRotStdDev
+        );
+        
+        // Sum total tags
+        int totalTags = observations.stream()
+            .mapToInt(WeightedPoseEstimate::getNumTags)
+            .sum();
+        
+        return new WeightedPoseEstimate(
+            new Pose2d(fusedX, fusedY, fusedRotation),
+            targetTimestamp,
+            fusedStdDevs,
+            totalTags
+        );
     }
 
     @FunctionalInterface

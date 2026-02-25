@@ -8,15 +8,18 @@ package frc.minolib.swerve;
  */
 
 public enum SwerveModuleType {
-    MK3_STANDARD(GearRatio.MK3_STANDARD, true, GearRatio.MK3_STEERING, false),
-    MK3_FAST(GearRatio.MK3_FAST, true, GearRatio.MK3_STEERING, false),
+    MK3_STANDARD(GearRatio.MK3_STANDARD, false, GearRatio.MK3_STEERING, false),
+    MK3_FAST(GearRatio.MK3_FAST, false, GearRatio.MK3_STEERING, false),
     MK4_L1(GearRatio.MK4_L1, false, GearRatio.MK4_STEERING, false),
     MK4_L2(GearRatio.MK4_L2, false, GearRatio.MK4_STEERING, false),
     MK4_L3(GearRatio.MK4_L3, false, GearRatio.MK4_STEERING, false),
     MK4_L4(GearRatio.MK4_L4, false, GearRatio.MK4_STEERING, false),
     MK4I_L1(GearRatio.MK4I_L1, false, GearRatio.MK4I_STEERING, true),
     MK4I_L2(GearRatio.MK4I_L2, false, GearRatio.MK4I_STEERING, true),
-    MK4I_L3(GearRatio.MK4I_L3, false, GearRatio.MK4I_STEERING, true);
+    MK4I_L3(GearRatio.MK4I_L3, false, GearRatio.MK4I_STEERING, true),
+    MK4N_L1(GearRatio.MK4I_L1, false, GearRatio.MK4N_STEERING, true),
+    MK4N_L2(GearRatio.MK4I_L2, false, GearRatio.MK4N_STEERING, true),
+    MK4N_L3(GearRatio.MK4I_L3, false, GearRatio.MK4N_STEERING, true);
 
     private double driveReduction;
     private boolean driveInverted;
@@ -91,5 +94,6 @@ public enum SwerveModuleType {
         public static final double MK3_STEERING = (32.0 / 15.0) * (60.0 / 10.0);
         public static final double MK4_STEERING = (32.0 / 15.0) * (60.0 / 10.0);
         public static final double MK4I_STEERING = (50.0 / 14.0) * (60.0 / 10.0);
+        public static final double MK4N_STEERING = (50.0 / 16.0) * (60.0 / 10.0);
     }
 }
